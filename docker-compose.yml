@@ -1,0 +1,36 @@
+services:
+  fh-mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: demo_root
+      MYSQL_DATABASE: family_health
+      MYSQL_USER: family_health
+      MYSQL_PASSWORD: demo_pw
+    volumes:
+      - fh_mysql_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pdemo_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  fh-app:
+    build: ./app
+    environment:
+      DB_HOST: fh-mysql
+      DB_PORT: "3306"
+      DB_NAME: family_health
+      DB_USER: family_health
+      DB_PASSWORD: demo_pw
+      APP_PORT: "8080"
+    depends_on:
+      fh-mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./photos:/data/photos:ro
+
+volumes:
+  fh_mysql_data:

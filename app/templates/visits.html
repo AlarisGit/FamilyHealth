@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Visits - Family Health{% endblock %}
+{% block content %}
+<h1>Visits</h1>
+
+<div class="card">
+    <div class="form-row">
+        <div class="form-group">
+            <label>From</label>
+            <input type="datetime-local" id="timeFrom">
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <input type="datetime-local" id="timeTo">
+        </div>
+        <div class="form-group admin-scope hidden" id="scopeGroup">
+            <label>Scope</label>
+            <select id="scope">
+                <option value="all">All patients</option>
+                <option value="mine">Mine only</option>
+            </select>
+        </div>
+        <div class="form-group" style="justify-content:end;">
+            <button class="btn btn-primary" onclick="loadVisits()">Load</button>
+        </div>
+    </div>
+</div>
+
+<div id="alert" class="alert hidden"></div>
+<div id="loading" class="hidden">Loading...</div>
+
+<div id="visitsCard" class="card hidden">
+    <h2>Appointments <span id="visitCount" class="text-muted"></span></h2>
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th class="admin-col hidden">Patient</th>
+                    <th>Type</th>
+                    <th>Doctor / Service</th>
+                    <th>Clinic</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="visitsBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function() {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2,'0');
+        const fmt = (d) => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+        document.getElementById('timeFrom').value = fmt(now);
+        const later = new Date(now.getTime() + 90*86400000);
+        document.getElementById('timeTo').value = fmt(later);
+    })();
+
+    function updateScopeVisibility() {
+        document.getElementById('scopeGroup').classList.toggle('hidden', !isAdmin());
+        document.querySelectorAll('.admin-col').forEach(el => el.classList.toggle('hidden', !isAdmin()));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        updateScopeVisibility();
+        loadVisits();
+    });
+
+    function showAlert(msg, type) {
+        const el = document.getElementById('alert');
+        el.className = 'alert alert-' + type;
+        el.textContent = msg;
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    async function loadVisits() {
+        updateScopeVisibility();
+        const pid = getPatientId();
+        const tf = document.getElementById('timeFrom').value;
+        const tt = document.getElementById('timeTo').value;
+        const scope = isAdmin() ? document.getElementById('scope').value : 'mine';
+
+        let url = `/api/v1/visits?patient_id=${pid}&scope=${scope}`;
+        if (tf) url += `&time_from=${tf}:00`;
+        if (tt) url += `&time_to=${tt}:00`;
+
+        document.getElementById('loading').classList.remove('hidden');
+        document.getElementById('visitsCard').classList.add('hidden');
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.error) { showAlert(data.message, 'error'); return; }
+            renderVisits(data.items);
+        } catch (e) {
+            showAlert('Failed: ' + e.message, 'error');
+        } finally {
+            document.getElementById('loading').classList.add('hidden');
+        }
+    }
+
+    function renderVisits(items) {
+        const tbody = document.getElementById('visitsBody');
+        tbody.innerHTML = '';
+        document.getElementById('visitCount').textContent = `(${items.length})`;
+
+        items.forEach(v => {
+            const tr = document.createElement('tr');
+            const typeBadge = v.visit_type === 'DOCTOR'
+                ? '<span class="badge badge-doctor">DOCTOR</span>'
+                : '<span class="badge badge-service">SERVICE</span>';
+            const name = v.visit_type === 'DOCTOR' ? (v.doctor_name || '-') : (v.service_name || '-');
+            const startFmt = v.start.replace('T', ' ');
+            const endFmt = v.end.replace('T', ' ');
+
+            const canCancel = isAdmin() || v.patient_id === getPatientId();
+            const cancelBtn = canCancel
+                ? `<button class="btn btn-danger btn-sm" onclick="cancelVisit(${v.visit_id})">Cancel</button>`
+                : '-';
+
+            let adminCell = '';
+            if (isAdmin()) {
+                adminCell = `<td>${v.patient_id}</td>`;
+            }
+
+            tr.innerHTML = `
+                <td>${v.visit_id}</td>
+                ${adminCell}
+                <td>${typeBadge}</td>
+                <td>${name}</td>
+                <td>${v.clinic_name}</td>
+                <td>${startFmt}</td>
+                <td>${endFmt}</td>
+                <td>${cancelBtn}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('visitsCard').classList.remove('hidden');
+    }
+
+    async function cancelVisit(visitId) {
+        if (!confirm('Cancel this visit?')) return;
+        const pid = getPatientId();
+        try {
+            const res = await fetch(`/api/v1/visits/${visitId}?patient_id=${pid}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.error) {
+                showAlert(data.message, 'error');
+            } else {
+                showAlert('Visit cancelled.', 'success');
+                loadVisits();
+            }
+        } catch (e) {
+            showAlert('Failed: ' + e.message, 'error');
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Family Health{% endblock %}</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --danger: #dc2626;
+            --danger-dark: #b91c1c;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-700: #374151;
+            --gray-900: #111827;
+            --radius: 8px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.5;
+        }
+        header {
+            background: var(--primary);
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        header .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: #fff;
+        }
+        header nav { display: flex; gap: 1rem; align-items: center; }
+        header nav a {
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius);
+            transition: background 0.15s;
+        }
+        header nav a:hover { background: rgba(255,255,255,0.15); }
+        .patient-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.1);
+            padding: 0.35rem 0.75rem;
+            border-radius: var(--radius);
+        }
+        .patient-bar label { font-size: 0.85rem; color: rgba(255,255,255,0.85); }
+        .patient-bar input {
+            width: 80px;
+            padding: 0.2rem 0.4rem;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .patient-bar input::placeholder { color: rgba(255,255,255,0.5); }
+        .patient-bar button {
+            padding: 0.2rem 0.6rem;
+            background: #fff;
+            color: var(--primary);
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .admin-badge {
+            background: var(--warning);
+            color: #000;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+        h2 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+        .card {
+            background: #fff;
+            border-radius: var(--radius);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            align-items: end;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .form-group label { font-size: 0.8rem; font-weight: 600; color: var(--gray-700); }
+        .form-group select,
+        .form-group input {
+            padding: 0.4rem 0.6rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            min-width: 140px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.45rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { background: var(--danger-dark); }
+        .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        th {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            background: var(--gray-100);
+            border-bottom: 2px solid var(--gray-200);
+            font-weight: 600;
+            color: var(--gray-700);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.45rem 0.6rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        tr:hover td { background: var(--gray-50); }
+        .badge {
+            display: inline-block;
+            padding: 0.1rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .badge-free { background: #dcfce7; color: var(--success); }
+        .badge-busy { background: #fee2e2; color: var(--danger); }
+        .badge-doctor { background: #dbeafe; color: var(--primary); }
+        .badge-service { background: #fef3c7; color: #92400e; }
+        .text-muted { color: var(--gray-500); font-size: 0.85rem; }
+        .mt-1 { margin-top: 0.5rem; }
+        .mt-2 { margin-top: 1rem; }
+        .hidden { display: none; }
+        #loading { color: var(--gray-500); padding: 1rem; text-align: center; }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .alert-error { background: #fee2e2; color: var(--danger); }
+        .alert-success { background: #dcfce7; color: var(--success); }
+        @media (max-width: 768px) {
+            .form-row { flex-direction: column; }
+            .form-group select, .form-group input { min-width: 100%; }
+            table { font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="display:flex;align-items:center;gap:1.5rem;">
+            <a href="/" class="logo">Family Health</a>
+            <nav>
+                <a href="/search">Slot Search</a>
+                <a href="/visits">Visits</a>
+                <a href="/docs" target="_blank">API Docs</a>
+            </nav>
+        </div>
+        <div class="patient-bar">
+            <label>Patient ID:</label>
+            <input type="number" id="patientIdInput" value="777" min="0" placeholder="ID">
+            <button onclick="applyPatientId()">Apply</button>
+            <span class="admin-badge" id="adminBadge">ADMIN MODE</span>
+        </div>
+    </header>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        function getPatientId() {
+            return parseInt(localStorage.getItem('patient_id') || '777', 10);
+        }
+        function setPatientId(id) {
+            localStorage.setItem('patient_id', id);
+            document.getElementById('patientIdInput').value = id;
+            updateAdminBadge();
+        }
+        function applyPatientId() {
+            const val = parseInt(document.getElementById('patientIdInput').value, 10);
+            if (isNaN(val) || val < 0) { alert('Patient ID must be >= 0'); return; }
+            setPatientId(val);
+            location.reload();
+        }
+        function updateAdminBadge() {
+            const badge = document.getElementById('adminBadge');
+            if (getPatientId() === 0) {
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        function isAdmin() { return getPatientId() === 0; }
+
+        // On load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('patientIdInput').value = getPatientId();
+            updateAdminBadge();
+        });
+
+        // Enter key on patient id input
+        document.getElementById('patientIdInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') applyPatientId();
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

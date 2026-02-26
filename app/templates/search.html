@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Slot Search - Family Health{% endblock %}
+{% block content %}
+<h1>Slot Search</h1>
+
+<div class="card">
+    <div class="form-row">
+        <div class="form-group">
+            <label>Type</label>
+            <select id="slotType" onchange="toggleTypeFields()">
+                <option value="doctor">Doctor</option>
+                <option value="service">Service</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>District</label>
+            <select id="district">
+                <option value="">All</option>
+                {% for d in districts %}
+                <option value="{{ d }}">{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Clinic</label>
+            <select id="clinicId">
+                <option value="">All</option>
+                {% for c in clinics %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row" id="doctorFields">
+        <div class="form-group">
+            <label>Direction</label>
+            <select id="directionId">
+                <option value="">All</option>
+                {% for d in directions %}
+                <option value="{{ d.id }}">{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Doctor name</label>
+            <input type="text" id="doctorName" placeholder="Substring...">
+        </div>
+    </div>
+
+    <div class="form-row hidden" id="serviceFields">
+        <div class="form-group">
+            <label>Service</label>
+            <select id="serviceId">
+                <option value="">All</option>
+                {% for s in services %}
+                <option value="{{ s.id }}">{{ s.name }} ({{ s.clinic.name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>From</label>
+            <input type="datetime-local" id="timeFrom">
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <input type="datetime-local" id="timeTo">
+        </div>
+        <div class="form-group" style="justify-content:end;">
+            <button class="btn btn-primary" onclick="searchSlots()">Search</button>
+        </div>
+    </div>
+</div>
+
+<div id="alert" class="alert hidden"></div>
+<div id="loading" class="hidden">Searching...</div>
+
+<div id="resultsCard" class="card hidden">
+    <h2>Results <span id="resultCount" class="text-muted"></span></h2>
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Doctor / Service</th>
+                    <th>Clinic</th>
+                    <th>District</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Status</th>
+                    <th class="admin-col hidden">Patient</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Defaults: today to +7 days
+    (function() {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2,'0');
+        const fmt = (d) => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+        document.getElementById('timeFrom').value = fmt(now);
+        const later = new Date(now.getTime() + 7*86400000);
+        document.getElementById('timeTo').value = fmt(later);
+    })();
+
+    function toggleTypeFields() {
+        const t = document.getElementById('slotType').value;
+        document.getElementById('doctorFields').classList.toggle('hidden', t !== 'doctor');
+        document.getElementById('serviceFields').classList.toggle('hidden', t !== 'service');
+    }
+
+    function showAlert(msg, type) {
+        const el = document.getElementById('alert');
+        el.className = 'alert alert-' + type;
+        el.textContent = msg;
+        el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    async function searchSlots() {
+        const pid = getPatientId();
+        const type = document.getElementById('slotType').value;
+        const tf = document.getElementById('timeFrom').value;
+        const tt = document.getElementById('timeTo').value;
+
+        if (!tf || !tt) { showAlert('Please set From and To dates.', 'error'); return; }
+
+        let url = `/api/v1/slots/search?patient_id=${pid}&type=${type}&time_from=${tf}:00&time_to=${tt}:00`;
+
+        const district = document.getElementById('district').value;
+        const clinicId = document.getElementById('clinicId').value;
+        if (district) url += `&district=${encodeURIComponent(district)}`;
+        if (clinicId) url += `&clinic_id=${clinicId}`;
+
+        if (type === 'doctor') {
+            const dirId = document.getElementById('directionId').value;
+            const dName = document.getElementById('doctorName').value;
+            if (dirId) url += `&direction_id=${dirId}`;
+            if (dName) url += `&doctor_name=${encodeURIComponent(dName)}`;
+        } else {
+            const svcId = document.getElementById('serviceId').value;
+            if (svcId) url += `&service_id=${svcId}`;
+        }
+
+        if (isAdmin()) url += '&include_busy=true';
+
+        document.getElementById('loading').classList.remove('hidden');
+        document.getElementById('resultsCard').classList.add('hidden');
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.error) { showAlert(data.message, 'error'); return; }
+            renderSlots(data.items);
+        } catch (e) {
+            showAlert('Request failed: ' + e.message, 'error');
+        } finally {
+            document.getElementById('loading').classList.add('hidden');
+        }
+    }
+
+    function renderSlots(items) {
+        const tbody = document.getElementById('resultsBody');
+        tbody.innerHTML = '';
+        document.getElementById('resultCount').textContent = `(${items.length} slots)`;
+
+        // Show/hide admin column
+        const adminCols = document.querySelectorAll('.admin-col');
+        adminCols.forEach(el => el.classList.toggle('hidden', !isAdmin()));
+
+        items.forEach(s => {
+            const tr = document.createElement('tr');
+            const typeBadge = s.slot_type === 'DOCTOR'
+                ? '<span class="badge badge-doctor">DOCTOR</span>'
+                : '<span class="badge badge-service">SERVICE</span>';
+            const statusBadge = s.is_free
+                ? '<span class="badge badge-free">Free</span>'
+                : '<span class="badge badge-busy">Busy</span>';
+            const name = s.slot_type === 'DOCTOR' ? (s.doctor_name || '-') : (s.service_name || '-');
+            const startFmt = s.start.replace('T', ' ');
+            const endFmt = s.end.replace('T', ' ');
+
+            let actionHtml = '';
+            if (s.is_free && !isAdmin()) {
+                actionHtml = `<button class="btn btn-primary btn-sm" onclick="bookSlot('${s.slot_type}', ${s.doctor_id}, ${s.service_id}, ${s.clinic_id}, '${s.start}')">Book</button>`;
+            } else if (s.is_free && isAdmin()) {
+                actionHtml = '<span class="text-muted">-</span>';
+            } else {
+                actionHtml = '<span class="text-muted">-</span>';
+            }
+
+            let adminCell = '';
+            if (isAdmin()) {
+                adminCell = `<td>${s.busy_patient_id !== null ? s.busy_patient_id : '-'}</td>`;
+            }
+
+            tr.innerHTML = `
+                <td>${typeBadge}</td>
+                <td>${name}</td>
+                <td>${s.clinic_name}</td>
+                <td>${s.district}</td>
+                <td>${startFmt}</td>
+                <td>${endFmt}</td>
+                <td>${statusBadge}</td>
+                ${adminCell}
+                <td>${actionHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('resultsCard').classList.remove('hidden');
+    }
+
+    async function bookSlot(slotType, doctorId, serviceId, clinicId, start) {
+        const pid = getPatientId();
+        if (pid <= 0) { showAlert('Patient ID must be > 0 for booking.', 'error'); return; }
+
+        const body = { visit_type: slotType, start: start };
+        if (slotType === 'DOCTOR') {
+            body.doctor_id = doctorId;
+            body.clinic_id = clinicId;
+        } else {
+            body.service_id = serviceId;
+        }
+
+        try {
+            const res = await fetch(`/api/v1/visits?patient_id=${pid}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (data.error) {
+                showAlert(data.message, 'error');
+            } else {
+                showAlert(`Visit booked! ID: ${data.visit_id}`, 'success');
+                searchSlots();
+            }
+        } catch (e) {
+            showAlert('Booking failed: ' + e.message, 'error');
+        }
+    }
+</script>
+{% endblock %}
