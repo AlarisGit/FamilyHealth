@@ -69,6 +69,14 @@
             <label>To</label>
             <input type="datetime-local" id="timeTo">
         </div>
+        <div class="form-group">
+            <label>Time rounding</label>
+            <select id="timeRounding">
+                <option value="10">Every 10 min</option>
+                <option value="5">Every 5 min</option>
+                <option value="1">Every 1 min</option>
+            </select>
+        </div>
         <div class="form-group" style="justify-content:end;">
             <button class="btn btn-primary" onclick="searchSlots()">Search</button>
         </div>
@@ -172,13 +180,22 @@
     function renderSlots(items) {
         const tbody = document.getElementById('resultsBody');
         tbody.innerHTML = '';
-        document.getElementById('resultCount').textContent = `(${items.length} slots)`;
+
+        // Apply time rounding filter
+        const rounding = parseInt(document.getElementById('timeRounding').value, 10);
+        const filteredItems = items.filter(s => {
+            const startTime = new Date(s.start);
+            const minutes = startTime.getMinutes();
+            return minutes % rounding === 0;
+        });
+
+        document.getElementById('resultCount').textContent = `(${filteredItems.length} of ${items.length} slots)`;
 
         // Show/hide admin column
         const adminCols = document.querySelectorAll('.admin-col');
         adminCols.forEach(el => el.classList.toggle('hidden', !isAdmin()));
 
-        items.forEach(s => {
+        filteredItems.forEach(s => {
             const tr = document.createElement('tr');
             const typeBadge = s.slot_type === 'DOCTOR'
                 ? '<span class="badge badge-doctor">DOCTOR</span>'
@@ -186,7 +203,17 @@
             const statusBadge = s.is_free
                 ? '<span class="badge badge-free">Free</span>'
                 : '<span class="badge badge-busy">Busy</span>';
-            const name = s.slot_type === 'DOCTOR' ? (s.doctor_name || '-') : (s.service_name || '-');
+
+            let name = '';
+            if (s.slot_type === 'DOCTOR') {
+                name = s.doctor_name || '-';
+                if (s.doctor_directions) {
+                    name += '<br><span style="font-size:0.85em;color:var(--gray-500);">' + s.doctor_directions + '</span>';
+                }
+            } else {
+                name = s.service_name || '-';
+            }
+
             const startFmt = s.start.replace('T', ' ');
             const endFmt = s.end.replace('T', ' ');
 

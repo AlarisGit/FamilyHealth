@@ -120,6 +120,7 @@ def search_doctor_slots(
             is_free = busy_pid is None
 
             if is_free or (include_busy and is_admin):
+                directions_str = ", ".join(d.name for d in doc.directions) if doc.directions else ""
                 slot = {
                     "slot_type": "DOCTOR",
                     "clinic_id": clinic.id,
@@ -127,6 +128,7 @@ def search_doctor_slots(
                     "district": clinic.district,
                     "doctor_id": doc.id,
                     "doctor_name": _doctor_name(doc),
+                    "doctor_directions": directions_str,
                     "service_id": None,
                     "service_name": None,
                     "start": t.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -192,6 +194,7 @@ def search_service_slots(
                     "district": clinic.district,
                     "doctor_id": None,
                     "doctor_name": None,
+                    "doctor_directions": None,
                     "service_id": svc.id,
                     "service_name": svc.name,
                     "start": t.strftime("%Y-%m-%dT%H:%M:%S"),

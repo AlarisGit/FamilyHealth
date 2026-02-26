@@ -16,6 +16,7 @@ class SlotItem(BaseModel):
     district: str
     doctor_id: Optional[int] = None
     doctor_name: Optional[str] = None
+    doctor_directions: Optional[str] = None
     service_id: Optional[int] = None
     service_name: Optional[str] = None
     start: str
