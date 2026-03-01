@@ -1,0 +1,265 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.26",
+    "lastTouchedAt": "2026-02-27T08:53:57.794Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-02-26T18:09:57.287Z",
+    "lastRunVersion": "2026.2.26",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "xai:default": {
+        "provider": "xai",
+        "mode": "api_key"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "xai": {
+        "baseUrl": "https://api.x.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "grok-4",
+            "name": "Grok 4",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 131072,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "ollama": {
+        "baseUrl": "http://host.docker.internal:11434",
+        "apiKey": "__REDACTED__",
+        "api": "ollama",
+        "models": [
+          {
+            "id": "gpt-oss:20b",
+            "name": "GPT-OSS 20B",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 32768,
+            "maxTokens": 8192
+          },
+          {
+            "id": "gemma3:27b-32k",
+            "name": "Gemma 3 27B 32K",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 32768,
+            "maxTokens": 8192
+          },
+          {
+            "id": "gemma3:27b",
+            "name": "Gemma 3 27B",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 32768,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "ollama/gpt-oss:20b",
+        "fallbacks": [
+          "xai/grok-4-1-fast-non-reasoning"
+        ]
+      },
+      "models": {
+        "xai/grok-4": {
+          "alias": "Grok"
+        },
+        "xai/grok-4-1-fast-non-reasoning": {},
+        "ollama/gemma3:27b-32k": {
+          "alias": "Gemma32K"
+        },
+        "ollama/gemma3:27b": {
+          "alias": "Gemma"
+        },
+        "ollama/gpt-oss:20b": {
+          "alias": "GptOss20B"
+        }
+      },
+      "workspace": "/home/node/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    },
+    "list": [
+      {
+        "id": "clinic",
+        "default": true,
+        "workspace": "/home/node/.openclaw/workspace-clinic",
+        "model": "ollama/gpt-oss:20b",
+        "skills": [
+          "Family Health Scheduler"
+        ],
+        "tools": {
+          "profile": "minimal",
+          "alsoAllow": [
+            "fh_api"
+          ],
+          "deny": [
+            "session_status",
+            "group:runtime",
+            "group:fs",
+            "group:web",
+            "group:ui",
+            "group:nodes",
+            "group:automation"
+          ]
+        }
+      },
+      {
+        "id": "main"
+      }
+    ]
+  },
+  "tools": {
+    "alsoAllow": [
+      "fh_api"
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "clinic",
+      "match": {
+        "channel": "telegram",
+        "accountId": "*"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer",
+    "typingMode": "never"
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "botToken": "__REDACTED__",
+      "groupPolicy": "allowlist",
+      "streaming": "off",
+      "timeoutSeconds": 120,
+      "retry": {
+        "attempts": 15,
+        "minDelayMs": 1000,
+        "maxDelayMs": 60000,
+        "jitter": 0.3
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:18789",
+        "http://127.0.0.1:18789"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "__REDACTED__"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add"
+      ]
+    }
+  },
+  "skills": {
+    "allowBundled": [
+      "__none__"
+    ]
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "fh-api": {
+        "enabled": true,
+        "config": {
+          "baseUrl": "http://host.docker.internal:8080/api/v1",
+          "timeoutMs": 15000
+        }
+      }
+    }
+  }
+}

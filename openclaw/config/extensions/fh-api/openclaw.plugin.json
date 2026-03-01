@@ -1,0 +1,34 @@
+{
+  "id": "fh-api",
+  "name": "Family Health API",
+  "version": "0.1.0",
+  "uiHints": {
+    "baseUrl": {
+      "label": "Family Health Base URL",
+      "placeholder": "http://host.docker.internal:8080/api/v1"
+    },
+    "timeoutMs": {
+      "label": "Request Timeout (ms)",
+      "advanced": true
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string"
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 60000
+      }
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
