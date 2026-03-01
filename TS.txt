@@ -1,0 +1,519 @@
+Let me ask you to build 'Family Health - Visit Scheduling Module (Demo)' according to the technical specification below:
+
+
+Scope: Demo-only (no real patient data, no security hardening)
+---
+
+1. Purpose
+
+Build a demo scheduling service for the fictional clinic network “Family Health” to support an AI agent demonstration. The service must allow a “patient” to search for available appointment slots, book a visit, and see the slot become occupied in the Web UI. The same system must support switching to an “admin mode” to view all visits and see which patient_id occupies a slot.
+Key constraints:
+- Simplicity first.
+- No authentication (demo only).
+- Patient identity is provided via patient_id query parameter and UI input.
+- Data (clinics, doctors, services, schedules) is preloaded/edited via DB only (no admin CRUD UI).
+- Only visits are managed via API (book/cancel/list).
+---
+
+2. Definitions and Concepts
+
+
+2.1 Entities (high level)
+
+- Clinic: a location with address and district.
+- Doctor: a person with optional photo and experience description; can have multiple specialties (Directions).
+- Direction: a medical specialty (Therapist, Cardiologist, etc.).
+- Service: clinic-based service (Labs, Ultrasound, CT, MRI). A Service belongs to exactly one Clinic.
+- Schedule: date-specific availability windows for Doctors and Services.
+- Slot: a potential appointment start time (minute precision), derived from schedules.
+- Visit: a booked appointment for either a Doctor or a Service.
+
+2.2 Visit types
+
+A Visit is either:
+- Doctor visit: appointment with a doctor at a selected clinic where the doctor is scheduled that day.
+- Service visit: appointment for a service at the service’s clinic.
+One visit = one service OR one doctor appointment. If a patient needs multiple services, they create multiple visits.
+---
+
+3. Roles and Access Model (Demo)
+
+
+3.1 Patient
+
+- Identified by patient_id > 0.
+- Can:
+	- Search slots
+	- Book visits
+	- Cancel only own visits
+	- List only own visits
+
+3.2 Admin
+
+- Identified by patient_id = 0.
+- Can:
+	- List all visits (scope=all)
+	- Cancel any visit
+	- Search slots with include_busy=true and see which patient_id occupies busy slots
+
+3.3 Identity handling (no auth)
+
+- All API calls include patient_id as a required query parameter.
+- Web UI includes an input field to set “current patient_id”; switching it simulates “logging in as that patient”.
+No authentication, no authorization tokens, no audit logs.
+---
+
+4. Functional Requirements
+
+
+4.1 Search and display slots
+
+Users must be able to search for slots using filters:
+- District (optional)
+- Clinic (optional)
+- Either:
+	- Direction (specialty) + optional doctor name filter, OR
+	- Service
+- Time window: time_from and time_to (required)
+- Slot type: doctor/service (required)
+Result format (API and UI):
+A table of slots (minute precision) containing:
+- Type: DOCTOR or SERVICE
+- Doctor/Service name
+- Clinic name
+- District
+- Start datetime
+- End datetime (computed)
+- Status: Free / Busy
+- If Busy and admin mode: show busy_patient_id
+Sorting (fixed, no user-configurable sorting):
+	- Start time ascending
+	- For doctor slots: doctor last name ascending
+	  For service slots: service name ascending
+
+4.2 Booking a visit
+
+Booking requirements:
+- Slots are minute-based.
+- Each Doctor/Service defines:
+	- duration_minutes
+	- buffer_minutes (gap after the visit)
+- A booking is allowed if:
+	the start time is within a valid schedule window for the selected Doctor/Service on that date, and
+	the blocked interval [start, start + duration + buffer) does not overlap with any existing visit interval for the same Doctor or Service.
+Booking is allowed from the current moment into the future. There are no additional lead-time restrictions.
+Idempotency-lite (demo retry support):
+- If a booking request targets a slot that is already booked by the same patient (same doctor/service and same start time), the API returns success with the existing visit ID (instead of slot-busy).
+Race conditions:
+- If two patients attempt to book the same slot concurrently, the service must ensure that only one succeeds.
+- Use transaction-level checks and/or uniqueness constraints to guarantee correctness.
+
+4.3 Cancel a visit
+
+- Cancel = delete the visit record.
+- Patient can cancel only own visits.
+- Admin can cancel any visit.
+
+4.4 Rescheduling a visit
+
+No dedicated reschedule endpoint is required.
+The intended flow is:
+	- Cancel visit A
+	- Book visit B
+
+4.5 List visits
+
+The API must allow listing:
+- Patient’s own visits for a given period
+- Admin listing of all visits for a given period
+Default behavior:
+- If time_from/time_to are not provided: show future visits (configurable default window, e.g., now to +90 days).
+---
+
+5. Business Rules
+
+
+5.1 Time and timezone
+
+- All times are interpreted in the demo host environment timezone (the machine running Docker).
+
+5.2 Schedule rules
+
+- Schedules are stored as specific dates with time windows (not recurring weekly patterns).
+- Data correctness is assumed for the demo (e.g., “a doctor appears only once per day per clinic”), with minimal validation.
+
+5.3 Capacity rules
+
+- Services are single-capacity (capacity = 1). No parallel slots.
+
+5.4 Overlap definition
+
+A booking blocks an interval:
+- [start, start + duration_minutes + buffer_minutes)
+Two visits overlap if their blocked intervals intersect.
+---
+
+6. Data Model (Logical)
+
+
+6.1 Clinic
+
+- id
+- name
+- district
+- address
+
+6.2 Direction (Specialty)
+
+- id
+- name
+
+6.3 Doctor
+
+- id
+- first_name
+- last_name
+- middle_name (optional)
+- bio_text (plain text)
+- photo_path (optional, relative path inside mounted volume, e.g., therapist/Ivanov.png)
+- duration_minutes
+- buffer_minutes
+
+6.4 DoctorDirection (many-to-many)
+
+- doctor_id
+- direction_id
+
+6.5 Service
+
+- id
+- name
+- clinic_id (required)
+- duration_minutes
+- buffer_minutes
+
+6.6 DoctorSchedule (date-specific)
+
+- id
+- doctor_id
+- clinic_id
+- work_date (DATE)
+- time_start (TIME)
+- time_end (TIME)
+
+6.7 ServiceSchedule (date-specific)
+
+- id
+- service_id
+- work_date (DATE)
+- time_start (TIME)
+- time_end (TIME)
+
+6.8 Visit
+
+A Visit references either Doctor or Service:
+- id
+- patient_id
+- visit_type ENUM('DOCTOR','SERVICE')
+- doctor_id NULLABLE
+- service_id NULLABLE
+- clinic_id (required; for SERVICE derived from Service)
+- start_datetime (DATETIME)
+- duration_minutes (copied at booking time)
+- buffer_minutes (copied at booking time)
+- created_at (DATETIME)
+Integrity constraints (logical):
+- If visit_type='DOCTOR' then doctor_id is not null and service_id is null.
+- If visit_type='SERVICE' then service_id is not null and doctor_id is null.
+---
+
+7. Slot Generation Logic
+
+Slots are generated dynamically from schedules.
+Given a schedule window:
+- window_start = work_date + time_start
+- window_end   = work_date + time_end
+For a resource (doctor or service) with duration_minutes:
+- Valid slot start times are every minute t where:
+	- t >= window_start
+	- t + duration_minutes <= window_end
+For each candidate start t, the blocked interval is:
+- [t, t + duration_minutes + buffer_minutes)
+A slot is Free if it does not overlap any existing booked visit interval for the same resource.
+This satisfies the rule that a slot cannot be booked if there is not enough free time before the next booked slot when considering duration + buffer.
+---
+
+8. REST API Specification
+
+
+8.1 General
+
+- Base path: /api/v1
+- Content type: application/json
+- Required query parameter for all endpoints:
+	- patient_id (integer)
+Admin is patient_id=0.
+
+8.2 Endpoints
+
+
+8.2.1 Search slots
+
+GET /slots/search
+Query parameters:
+- patient_id (required)
+- type = doctor | service (required)
+- district (optional)
+- clinic_id (optional)
+- direction_id (optional; only for type=doctor)
+- doctor_name (optional; substring match; only for type=doctor)
+- service_id (optional; only for type=service)
+- time_from (required; ISO 8601 datetime)
+- time_to (required; ISO 8601 datetime)
+- include_busy (optional boolean; default false; allowed only for admin)
+Response:
+``
+{  "items": [    {      "slot_type": "DOCTOR",      "clinic_id": 1,      "clinic_name": "Family Health Mitte",      "district": "Mitte",      "doctor_id": 10,      "doctor_name": "Ivanov Ivan",      "service_id": null,      "service_name": null,      "start": "2026-03-01T10:15:00",      "end": "2026-03-01T10:45:00",      "is_free": true,      "busy_patient_id": null    }  ]}
+`
+Notes:
+- For slot_type=SERVICE fill service fields and keep doctor fields null.
+- In non-admin mode, busy_patient_id must always be null and busy slots are omitted unless include_busy=true (which is admin-only).
+
+8.2.2 Book a visit
+
+POST /visits
+Query parameters:
+- patient_id (required)
+Request body (Doctor):
+`
+{  "visit_type": "DOCTOR",  "doctor_id": 10,  "clinic_id": 1,  "start": "2026-03-01T10:15:00"}
+`
+Request body (Service):
+`
+{  "visit_type": "SERVICE",  "service_id": 5,  "start": "2026-03-01T11:00:00"}
+`
+Rules:
+- For SERVICE, clinic_id is derived from the service.
+- Validate schedule and overlap.
+- Apply idempotency-lite rule:
+	- If the same patient already has the same booking (same resource + start) return success with existing visit.
+	- If occupied by another patient or overlaps → conflict error.
+Response:
+`
+{  "visit_id": 1234,  "status": "booked"}
+`
+
+8.2.3 Cancel a visit
+
+DELETE /visits/{visit_id}
+Query parameters:
+- patient_id (required)
+Behavior:
+- If patient_id != 0, allow only if visit.patient_id matches.
+- If patient_id == 0, allow deleting any visit.
+Response:
+`
+{ "status": "deleted" }
+`
+
+8.2.4 List visits
+
+GET /visits
+Query parameters:
+- patient_id (required)
+- time_from (optional; default now)
+- time_to (optional; default now + 90 days)
+- scope = mine | all (optional; default mine; all allowed only for admin)
+Response:
+`
+{  "items": [    {      "visit_id": 1234,      "patient_id": 777,      "visit_type": "SERVICE",      "clinic_id": 2,      "clinic_name": "Family Health West",      "doctor_id": null,      "doctor_name": null,      "service_id": 5,      "service_name": "MRI",      "start": "2026-03-01T11:00:00",      "end": "2026-03-01T11:40:00"    }  ]}
+`
+
+8.2.5 Reference data (read-only, recommended)
+
+- GET /clinics
+- GET /directions
+- GET /doctors (optional filters: direction_id, name)
+- GET /services (optional filters: clinic_id, name)
+These endpoints simplify UI dropdowns and reduce direct DB coupling.
+
+8.3 Error model (demo-friendly)
+
+Consistent JSON:
+`
+{ "error": "slot_busy", "message": "Selected slot is already booked." }
+`
+Recommended HTTP status codes:
+- 400 invalid_request (missing/invalid fields)
+- 403 forbidden (attempt to cancel someone else’s visit)
+- 404 not_found (unknown resource/visit)
+- 409 slot_busy (occupied by another patient or overlap)
+- 409 not_in_schedule (outside working windows)
+- 500 internal_error
+---
+
+9. Web UI Specification (English, Server-rendered)
+
+
+9.1 Technology
+
+- Server-rendered templates (Jinja2).
+- Minimal JavaScript (optional) for form UX; not required.
+
+9.2 Global UI behavior
+
+- A visible Patient ID input (default e.g., 777) + “Apply”.
+- If patient_id == 0, UI switches into Admin Mode.
+
+9.3 Pages
+
+
+Page 1: Slot Search
+
+Filters:
+- Type: Doctor / Service
+- District (dropdown)
+- Clinic (dropdown)
+- Period: from/to datetime
+- If Doctor:
+	- Direction (dropdown)
+	- Doctor name substring (text input)
+- If Service:
+	- Service (dropdown)
+Results:
+- Table showing slots (as described in section 4.1).
+- For free slots: “Book” action.
+- Admin Mode:
+	- show both free and busy slots (busy includes busy_patient_id)
+- Patient Mode:
+	- show only free slots
+
+Page 2: Visits
+
+- Period selection (from/to)
+- Patient Mode: show only current patient’s visits.
+- Admin Mode: show all visits (or provide a toggle “Mine/All”; default All).
+- Table columns: start/end, type, doctor/service, clinic, (admin only: patient_id)
+- Action: “Cancel” per row (allowed per role rules)
+No CRUD pages for doctors/clinics/schedules/services.
+---
+
+10. Database (MySQL) and Initialization
+
+
+10.1 MySQL container
+
+- Use official MySQL image (version pinned; e.g., mysql:8.0).
+- Persist DB data via a named Docker volume.
+
+10.2 Initialization scripts
+
+- Schema and seed data loaded using MySQL init mechanism:
+	- SQL scripts mounted into /docker-entrypoint-initdb.d/
+- Scripts are executed only when DB is empty (first startup with a fresh volume).
+
+10.3 Seed data requirements (minimal)
+
+Provide out-of-the-box demo dataset:
+- ~3 clinics in 2–3 districts
+- 8–12 doctors, with multi-direction mapping
+- 4–6 services tied to clinics
+- schedules for the next 7–14 days
+- optionally 2–5 pre-booked visits (useful for admin busy-slot display)
+---
+
+11. Docker Compose Packaging
+
+
+11.1 Deliverables
+
+Repository structure (suggested):
+- docker-compose.yml
+- app/ (Python service + templates + static)
+- db/init/ (SQL scripts)
+- photos/ (optional doctor images, mounted volume/bind)
+
+11.2 Containers
+
+fh-mysql
+- MySQL database
+- Initialized via db/init/*.sql
+- Uses named volume for /var/lib/mysql
+fh-app
+- Python web service providing UI + API + Swagger UI
+- Connects to fh-mysql over compose network
+- Must tolerate DB startup delay (retry until reachable)
+Optional (off by default):
+- DB admin UI (Adminer/phpMyAdmin) for debugging.
+
+11.3 Volumes
+
+- fh_mysql_data (named volume) → MySQL data persistence
+- Optional ./photos:/data/photos:ro for doctor images
+
+11.4 Ports
+
+- Expose only HTTP port from app container (e.g., 8080:8080)
+- MySQL port not exposed by default
+
+11.5 Example compose (reference)
+
+`
+services:  fh-mysql:    image: mysql:8.0    environment:      MYSQL_ROOT_PASSWORD: demo_root      MYSQL_DATABASE: family_health      MYSQL_USER: family_health      MYSQL_PASSWORD: demo_pw    volumes:      - fh_mysql_data:/var/lib/mysql      - ./db/init:/docker-entrypoint-initdb.d:ro  fh-app:    build: ./app    environment:      DB_HOST: fh-mysql      DB_PORT: "3306"      DB_NAME: family_health      DB_USER: family_health      DB_PASSWORD: demo_pw      APP_PORT: "8080"    depends_on:      - fh-mysql    ports:      - "8080:8080"    volumes:      - ./photos:/data/photos:rovolumes:  fh_mysql_data:
+``
+
+---
+
+12. OpenAPI / Swagger UI
+
+- OpenAPI JSON served at /openapi.json
+- Swagger UI served at /docs
+Swagger UI is considered a “nice-to-have” but strongly recommended for demo speed.
+---
+
+13. Non-Functional Requirements
+
+
+13.1 Performance and scale (demo)
+
+- Single laptop deployment
+- Approximate data volume:
+	- up to 10 clinics
+	- up to 100 doctors
+	- up to 20 services
+- No performance optimization required beyond correctness and reasonable responsiveness.
+
+13.2 Logging, health checks
+
+- No special health endpoints required.
+- Basic application logs (stdout) are acceptable but not required by TS.
+
+13.3 Security
+
+Out of scope for demo:
+- authentication
+- authorization beyond simple patient_id checks
+- TLS
+- audit logs
+- PII handling
+---
+
+14. Out of Scope
+
+- Editing reference data via UI or API (clinics/doctors/services/schedules)
+- Recurring weekly schedules (rules like “every Monday”)
+- Holidays/exceptions model beyond “just don’t schedule it”
+- Multi-timezone support
+- Multi-capacity services
+- Markdown rendering for doctor bios (plain text only initially)
+---
+
+15. Acceptance Criteria
+
+Compose startup: docker compose up launches app + MySQL, initializes DB on first run.
+Slot search: user can filter and see a table of free slots.
+Booking: user can book a free slot; it becomes busy immediately and is visible in UI.
+Patient restrictions: a patient can list and cancel only own visits.
+Admin mode: with patient_id=0, UI shows busy slots with the occupying patient_id and can list/cancel any visit.
+API docs: Swagger UI is accessible and reflects endpoints and schemas.
+Persistence: DB persists across container restarts using a named volume.
