@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -31,6 +32,9 @@ app = FastAPI(
 )
 
 templates = Jinja2Templates(directory="templates")
+
+# Mount static files for doctor photos
+app.mount("/photos", StaticFiles(directory="/data/photos"), name="photos")
 
 
 @app.on_event("startup")
@@ -246,9 +250,13 @@ def api_list_visits(
     items = []
     for v in visits:
         doc_name = None
+        doc_photo = None
+        doc_bio = None
         svc_name = None
         if v.doctor:
             doc_name = _doctor_name(v.doctor)
+            doc_photo = v.doctor.photo_path
+            doc_bio = v.doctor.bio_text
         if v.service:
             svc_name = v.service.name
         end_dt = v.start_datetime + timedelta(minutes=v.duration_minutes)
@@ -260,6 +268,8 @@ def api_list_visits(
             clinic_name=v.clinic.name,
             doctor_id=v.doctor_id,
             doctor_name=doc_name,
+            doctor_photo=doc_photo,
+            doctor_bio=doc_bio,
             service_id=v.service_id,
             service_name=svc_name,
             start=v.start_datetime.strftime("%Y-%m-%dT%H:%M:%S"),

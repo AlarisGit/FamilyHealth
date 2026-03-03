@@ -17,6 +17,8 @@ class SlotItem(BaseModel):
     doctor_id: Optional[int] = None
     doctor_name: Optional[str] = None
     doctor_directions: Optional[str] = None
+    doctor_photo: Optional[str] = None
+    doctor_bio: Optional[str] = None
     service_id: Optional[int] = None
     service_name: Optional[str] = None
     start: str
@@ -50,6 +52,8 @@ class VisitItem(BaseModel):
     clinic_name: str
     doctor_id: Optional[int] = None
     doctor_name: Optional[str] = None
+    doctor_photo: Optional[str] = None
+    doctor_bio: Optional[str] = None
     service_id: Optional[int] = None
     service_name: Optional[str] = None
     start: str

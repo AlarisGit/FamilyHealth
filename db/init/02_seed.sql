@@ -1,6 +1,9 @@
 -- Family Health Demo: Seed Data
 -- Provides demo dataset for immediate use after first startup
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 -- ============================================================
 -- Clinics (3 clinics, 2 districts)
 -- ============================================================
@@ -24,40 +27,40 @@ INSERT INTO direction (id, name) VALUES
 -- Doctors (10 doctors)
 -- ============================================================
 INSERT INTO doctor (id, first_name, last_name, middle_name, bio_text, photo_path, duration_minutes, buffer_minutes) VALUES
-(1,  'Ivan',    'Ivanov',    'Petrovich',   '15 years of experience in general practice. Specializes in preventive medicine and chronic disease management.', NULL, 30, 5),
-(2,  'Maria',   'Petrova',   NULL,          'Board-certified cardiologist with expertise in echocardiography and heart failure management.', NULL, 40, 10),
-(3,  'Alexei',  'Smirnov',   'Dmitrievich', 'Experienced therapist and cardiologist. Published researcher in cardiovascular prevention.', NULL, 30, 5),
-(4,  'Elena',   'Kozlova',   NULL,          'Neurologist specializing in headache disorders, epilepsy, and neurorehabilitation.', NULL, 45, 10),
-(5,  'Dmitri',  'Volkov',    'Sergeevich',  'Dermatologist with 10 years experience. Expert in allergic skin conditions and cosmetic dermatology.', NULL, 20, 5),
-(6,  'Olga',    'Novikova',  NULL,          'Pediatrician with a gentle approach. Experienced in newborn care and childhood vaccinations.', NULL, 30, 5),
-(7,  'Sergei',  'Morozov',   'Ivanovich',   'ENT specialist. Performs diagnostic endoscopy and treats chronic sinusitis and hearing disorders.', NULL, 25, 5),
-(8,  'Anna',    'Fedorova',  NULL,          'Therapist focused on elderly care and management of diabetes and hypertension.', NULL, 30, 5),
-(9,  'Pavel',   'Sokolov',   'Andreevich',  'Cardiologist specializing in arrhythmia management and cardiac rehabilitation.', NULL, 40, 10),
-(10, 'Natalia', 'Lebedeva',  NULL,          'Pediatrician and neurologist. Focuses on child development disorders and pediatric neurology.', NULL, 35, 10);
+(1,  'Hans',      'Müller',     NULL, '15 years of experience in general practice. Specializes in preventive medicine and chronic disease management.', '/photos/Hans Muller.png', 30, 5),
+(2,  'Anna',      'Schmidt',    NULL, 'Board-certified cardiologist with expertise in echocardiography and heart failure management.', '/photos/Anna Schmidt.png', 40, 10),
+(3,  'Thomas',    'Fischer',    NULL, 'Experienced therapist and cardiologist. Published researcher in cardiovascular prevention.', '/photos/Thomas Fischer.png', 30, 5),
+(4,  'Julia',     'Weber',      NULL, 'Neurologist specializing in headache disorders, epilepsy, and neurorehabilitation.', '/photos/Julia Weber.png', 45, 10),
+(5,  'Michael',   'Wagner',     NULL, 'Dermatologist with 10 years experience. Expert in allergic skin conditions and cosmetic dermatology.', '/photos/Michael Wagner.png', 20, 5),
+(6,  'Sabine',    'Becker',     NULL, 'Pediatrician with a gentle approach. Experienced in newborn care and childhood vaccinations.', '/photos/Sabine Becker.png', 30, 5),
+(7,  'Klaus',     'Hoffmann',   NULL, 'ENT specialist. Performs diagnostic endoscopy and treats chronic sinusitis and hearing disorders.', '/photos/Klaus Hoffmann.png', 25, 5),
+(8,  'Elisabeth', 'Schröder',   NULL, 'Therapist focused on elderly care and management of diabetes and hypertension.', '/photos/Elisabeth Schroder.png', 30, 5),
+(9,  'Peter',     'Koch',       NULL, 'Cardiologist specializing in arrhythmia management and cardiac rehabilitation.', '/photos/Peter Koch.png', 40, 10),
+(10, 'Katharina', 'Zimmermann', NULL, 'Pediatrician and neurologist. Focuses on child development disorders and pediatric neurology.', '/photos/Katharina Zimmermann.png', 35, 10);
 
 -- ============================================================
 -- Doctor-Direction mapping
 -- ============================================================
 INSERT INTO doctor_direction (doctor_id, direction_id) VALUES
--- Ivanov: Therapist
+-- Müller: Therapist
 (1, 1),
--- Petrova: Cardiologist
+-- Schmidt: Cardiologist
 (2, 2),
--- Smirnov: Therapist + Cardiologist
+-- Fischer: Therapist + Cardiologist
 (3, 1), (3, 2),
--- Kozlova: Neurologist
+-- Weber: Neurologist
 (4, 3),
--- Volkov: Dermatologist
+-- Wagner: Dermatologist
 (5, 4),
--- Novikova: Pediatrician
+-- Becker: Pediatrician
 (6, 5),
--- Morozov: ENT Specialist
+-- Hoffmann: ENT Specialist
 (7, 6),
--- Fedorova: Therapist
+-- Schröder: Therapist
 (8, 1),
--- Sokolov: Cardiologist
+-- Koch: Cardiologist
 (9, 2),
--- Lebedeva: Pediatrician + Neurologist
+-- Zimmermann: Pediatrician + Neurologist
 (10, 5), (10, 3);
 
 -- ============================================================
@@ -87,57 +90,57 @@ BEGIN
         -- Skip Sundays (DAYOFWEEK: 1=Sunday)
         IF DAYOFWEEK(cur_date) != 1 THEN
 
-            -- Ivanov @ Mitte, Mon-Sat
+            -- Müller @ Mitte, Mon-Sat
             INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
             VALUES (1, 1, cur_date, '09:00', '17:00');
 
-            -- Petrova @ Mitte, Mon-Fri
+            -- Schmidt @ Mitte, Mon-Fri
             IF DAYOFWEEK(cur_date) NOT IN (1, 7) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (2, 1, cur_date, '10:00', '18:00');
             END IF;
 
-            -- Smirnov @ West, Mon-Fri
+            -- Fischer @ West, Mon-Fri
             IF DAYOFWEEK(cur_date) NOT IN (1, 7) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (3, 2, cur_date, '08:00', '16:00');
             END IF;
 
-            -- Kozlova @ Pankow, Mon-Fri
+            -- Weber @ Pankow, Mon-Fri
             IF DAYOFWEEK(cur_date) NOT IN (1, 7) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (4, 3, cur_date, '09:00', '15:00');
             END IF;
 
-            -- Volkov @ Mitte, Mon/Wed/Fri
+            -- Wagner @ Mitte, Mon/Wed/Fri
             IF DAYOFWEEK(cur_date) IN (2, 4, 6) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (5, 1, cur_date, '10:00', '14:00');
             END IF;
 
-            -- Novikova @ Pankow, Mon-Sat
+            -- Becker @ Pankow, Mon-Sat
             INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
             VALUES (6, 3, cur_date, '08:00', '14:00');
 
-            -- Morozov @ West, Tue/Thu
+            -- Hoffmann @ West, Tue/Thu
             IF DAYOFWEEK(cur_date) IN (3, 5) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (7, 2, cur_date, '09:00', '17:00');
             END IF;
 
-            -- Fedorova @ West, Mon-Fri
+            -- Schröder @ West, Mon-Fri
             IF DAYOFWEEK(cur_date) NOT IN (1, 7) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (8, 2, cur_date, '08:00', '16:00');
             END IF;
 
-            -- Sokolov @ Mitte, Mon-Fri
+            -- Koch @ Mitte, Mon-Fri
             IF DAYOFWEEK(cur_date) NOT IN (1, 7) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (9, 1, cur_date, '11:00', '19:00');
             END IF;
 
-            -- Lebedeva @ Pankow, Mon/Wed/Fri
+            -- Zimmermann @ Pankow, Mon/Wed/Fri
             IF DAYOFWEEK(cur_date) IN (2, 4, 6) THEN
                 INSERT INTO doctor_schedule (doctor_id, clinic_id, work_date, time_start, time_end)
                 VALUES (10, 3, cur_date, '09:00', '15:00');

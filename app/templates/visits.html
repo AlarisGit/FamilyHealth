@@ -116,7 +116,7 @@
             const typeBadge = v.visit_type === 'DOCTOR'
                 ? '<span class="badge badge-doctor">DOCTOR</span>'
                 : '<span class="badge badge-service">SERVICE</span>';
-            const name = v.visit_type === 'DOCTOR' ? (v.doctor_name || '-') : (v.service_name || '-');
+
             const startFmt = v.start.replace('T', ' ');
             const endFmt = v.end.replace('T', ' ');
 
@@ -130,16 +130,47 @@
                 adminCell = `<td>${v.patient_id}</td>`;
             }
 
+            // Build doctor/service cell content
+            const nameCell = document.createElement('td');
+            if (v.visit_type === 'DOCTOR') {
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'display:flex;align-items:center;gap:10px;';
+                if (v.doctor_bio) {
+                    wrapper.title = v.doctor_bio; // DOM API handles escaping
+                }
+
+                if (v.doctor_photo) {
+                    const img = document.createElement('img');
+                    img.src = v.doctor_photo;
+                    img.alt = v.doctor_name || '';
+                    img.style.cssText = 'width:50px;height:50px;border-radius:50%;object-fit:cover;';
+                    wrapper.appendChild(img);
+                }
+
+                const textDiv = document.createElement('div');
+                const nameStrong = document.createElement('strong');
+                nameStrong.textContent = v.doctor_name || '-';
+                textDiv.appendChild(nameStrong);
+
+                wrapper.appendChild(textDiv);
+                nameCell.appendChild(wrapper);
+            } else {
+                nameCell.textContent = v.service_name || '-';
+            }
+
             tr.innerHTML = `
                 <td>${v.visit_id}</td>
                 ${adminCell}
                 <td>${typeBadge}</td>
-                <td>${name}</td>
+                <td></td>
                 <td>${v.clinic_name}</td>
                 <td>${startFmt}</td>
                 <td>${endFmt}</td>
                 <td>${cancelBtn}</td>
             `;
+            // Replace the empty name cell with our safely constructed one
+            const nameCellIndex = isAdmin() ? 3 : 2;
+            tr.cells[nameCellIndex].replaceWith(nameCell);
             tbody.appendChild(tr);
         });
 

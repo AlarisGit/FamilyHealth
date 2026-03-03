@@ -110,34 +110,50 @@ def search_doctor_slots(
 
         visits = _get_doctor_visits(db, doc.id, sched.work_date)
 
-        t = max(window_start, time_from)
-        # Align to minute
-        if t.second > 0 or t.microsecond > 0:
-            t = t.replace(second=0, microsecond=0) + timedelta(minutes=1)
+        # Generate fixed time slots based on duration + buffer
+        slot_interval = doc.duration_minutes + doc.buffer_minutes
 
-        while t + timedelta(minutes=doc.duration_minutes) <= window_end and t < time_to:
-            busy_pid = _overlaps(t, doc.duration_minutes, doc.buffer_minutes, visits)
-            is_free = busy_pid is None
+        # Align first slot to grid, but not before time_from
+        if time_from > window_start:
+            # Calculate how many intervals from window_start to time_from
+            delta_minutes = (time_from - window_start).total_seconds() / 60
+            intervals_to_skip = int(delta_minutes / slot_interval)
+            # If time_from falls within an interval, move to next interval
+            if delta_minutes % slot_interval > 0:
+                intervals_to_skip += 1
+            t = window_start + timedelta(minutes=intervals_to_skip * slot_interval)
+        else:
+            t = window_start
 
-            if is_free or (include_busy and is_admin):
-                directions_str = ", ".join(d.name for d in doc.directions) if doc.directions else ""
-                slot = {
-                    "slot_type": "DOCTOR",
-                    "clinic_id": clinic.id,
-                    "clinic_name": clinic.name,
-                    "district": clinic.district,
-                    "doctor_id": doc.id,
-                    "doctor_name": _doctor_name(doc),
-                    "doctor_directions": directions_str,
-                    "service_id": None,
-                    "service_name": None,
-                    "start": t.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "end": (t + timedelta(minutes=doc.duration_minutes)).strftime("%Y-%m-%dT%H:%M:%S"),
-                    "is_free": is_free,
-                    "busy_patient_id": busy_pid if is_admin else None,
-                }
-                slots.append(slot)
-            t += timedelta(minutes=1)
+        while t + timedelta(minutes=doc.duration_minutes) <= window_end:
+            slot_end = t + timedelta(minutes=doc.duration_minutes)
+            # Only include slots that start at or after time_from and end at or before time_to
+            if t >= time_from and slot_end <= time_to:
+                busy_pid = _overlaps(t, doc.duration_minutes, doc.buffer_minutes, visits)
+                is_free = busy_pid is None
+
+                if is_free or (include_busy and is_admin):
+                    directions_str = ", ".join(d.name for d in doc.directions) if doc.directions else ""
+                    slot = {
+                        "slot_type": "DOCTOR",
+                        "clinic_id": clinic.id,
+                        "clinic_name": clinic.name,
+                        "district": clinic.district,
+                        "doctor_id": doc.id,
+                        "doctor_name": _doctor_name(doc),
+                        "doctor_directions": directions_str,
+                        "doctor_photo": doc.photo_path,
+                        "doctor_bio": doc.bio_text,
+                        "service_id": None,
+                        "service_name": None,
+                        "start": t.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "end": slot_end.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "is_free": is_free,
+                        "busy_patient_id": busy_pid if is_admin else None,
+                    }
+                    slots.append(slot)
+
+            t += timedelta(minutes=slot_interval)
 
     slots.sort(key=lambda s: (s["start"], s["doctor_name"] or ""))
     return slots
@@ -178,32 +194,49 @@ def search_service_slots(
 
         visits = _get_service_visits(db, svc.id, sched.work_date)
 
-        t = max(window_start, time_from)
-        if t.second > 0 or t.microsecond > 0:
-            t = t.replace(second=0, microsecond=0) + timedelta(minutes=1)
+        # Generate fixed time slots based on duration + buffer
+        slot_interval = svc.duration_minutes + svc.buffer_minutes
 
-        while t + timedelta(minutes=svc.duration_minutes) <= window_end and t < time_to:
-            busy_pid = _overlaps(t, svc.duration_minutes, svc.buffer_minutes, visits)
-            is_free = busy_pid is None
+        # Align first slot to grid, but not before time_from
+        if time_from > window_start:
+            # Calculate how many intervals from window_start to time_from
+            delta_minutes = (time_from - window_start).total_seconds() / 60
+            intervals_to_skip = int(delta_minutes / slot_interval)
+            # If time_from falls within an interval, move to next interval
+            if delta_minutes % slot_interval > 0:
+                intervals_to_skip += 1
+            t = window_start + timedelta(minutes=intervals_to_skip * slot_interval)
+        else:
+            t = window_start
 
-            if is_free or (include_busy and is_admin):
-                slot = {
-                    "slot_type": "SERVICE",
-                    "clinic_id": clinic.id,
-                    "clinic_name": clinic.name,
-                    "district": clinic.district,
-                    "doctor_id": None,
-                    "doctor_name": None,
-                    "doctor_directions": None,
-                    "service_id": svc.id,
-                    "service_name": svc.name,
-                    "start": t.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "end": (t + timedelta(minutes=svc.duration_minutes)).strftime("%Y-%m-%dT%H:%M:%S"),
-                    "is_free": is_free,
-                    "busy_patient_id": busy_pid if is_admin else None,
-                }
-                slots.append(slot)
-            t += timedelta(minutes=1)
+        while t + timedelta(minutes=svc.duration_minutes) <= window_end:
+            slot_end = t + timedelta(minutes=svc.duration_minutes)
+            # Only include slots that start at or after time_from and end at or before time_to
+            if t >= time_from and slot_end <= time_to:
+                busy_pid = _overlaps(t, svc.duration_minutes, svc.buffer_minutes, visits)
+                is_free = busy_pid is None
+
+                if is_free or (include_busy and is_admin):
+                    slot = {
+                        "slot_type": "SERVICE",
+                        "clinic_id": clinic.id,
+                        "clinic_name": clinic.name,
+                        "district": clinic.district,
+                        "doctor_id": None,
+                        "doctor_name": None,
+                        "doctor_directions": None,
+                        "doctor_photo": None,
+                        "doctor_bio": None,
+                        "service_id": svc.id,
+                        "service_name": svc.name,
+                        "start": t.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "end": slot_end.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "is_free": is_free,
+                        "busy_patient_id": busy_pid if is_admin else None,
+                    }
+                    slots.append(slot)
+
+            t += timedelta(minutes=slot_interval)
 
     slots.sort(key=lambda s: (s["start"], s["service_name"] or ""))
     return slots

@@ -69,14 +69,6 @@
             <label>To</label>
             <input type="datetime-local" id="timeTo">
         </div>
-        <div class="form-group">
-            <label>Time rounding</label>
-            <select id="timeRounding">
-                <option value="10">Every 10 min</option>
-                <option value="5">Every 5 min</option>
-                <option value="1">Every 1 min</option>
-            </select>
-        </div>
         <div class="form-group" style="justify-content:end;">
             <button class="btn btn-primary" onclick="searchSlots()">Search</button>
         </div>
@@ -181,21 +173,13 @@
         const tbody = document.getElementById('resultsBody');
         tbody.innerHTML = '';
 
-        // Apply time rounding filter
-        const rounding = parseInt(document.getElementById('timeRounding').value, 10);
-        const filteredItems = items.filter(s => {
-            const startTime = new Date(s.start);
-            const minutes = startTime.getMinutes();
-            return minutes % rounding === 0;
-        });
-
-        document.getElementById('resultCount').textContent = `(${filteredItems.length} of ${items.length} slots)`;
+        document.getElementById('resultCount').textContent = `(${items.length} slots)`;
 
         // Show/hide admin column
         const adminCols = document.querySelectorAll('.admin-col');
         adminCols.forEach(el => el.classList.toggle('hidden', !isAdmin()));
 
-        filteredItems.forEach(s => {
+        items.forEach(s => {
             const tr = document.createElement('tr');
             const typeBadge = s.slot_type === 'DOCTOR'
                 ? '<span class="badge badge-doctor">DOCTOR</span>'
@@ -203,16 +187,6 @@
             const statusBadge = s.is_free
                 ? '<span class="badge badge-free">Free</span>'
                 : '<span class="badge badge-busy">Busy</span>';
-
-            let name = '';
-            if (s.slot_type === 'DOCTOR') {
-                name = s.doctor_name || '-';
-                if (s.doctor_directions) {
-                    name += '<br><span style="font-size:0.85em;color:var(--gray-500);">' + s.doctor_directions + '</span>';
-                }
-            } else {
-                name = s.service_name || '-';
-            }
 
             const startFmt = s.start.replace('T', ' ');
             const endFmt = s.end.replace('T', ' ');
@@ -231,9 +205,45 @@
                 adminCell = `<td>${s.busy_patient_id !== null ? s.busy_patient_id : '-'}</td>`;
             }
 
+            // Build doctor/service cell content
+            const nameCell = document.createElement('td');
+            if (s.slot_type === 'DOCTOR') {
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'display:flex;align-items:center;gap:10px;';
+                if (s.doctor_bio) {
+                    wrapper.title = s.doctor_bio; // DOM API handles escaping
+                }
+
+                if (s.doctor_photo) {
+                    const img = document.createElement('img');
+                    img.src = s.doctor_photo;
+                    img.alt = s.doctor_name || '';
+                    img.style.cssText = 'width:50px;height:50px;border-radius:50%;object-fit:cover;';
+                    wrapper.appendChild(img);
+                }
+
+                const textDiv = document.createElement('div');
+                const nameStrong = document.createElement('strong');
+                nameStrong.textContent = s.doctor_name || '-';
+                textDiv.appendChild(nameStrong);
+
+                if (s.doctor_directions) {
+                    textDiv.appendChild(document.createElement('br'));
+                    const dirSpan = document.createElement('span');
+                    dirSpan.style.cssText = 'font-size:0.85em;color:var(--gray-500);';
+                    dirSpan.textContent = s.doctor_directions;
+                    textDiv.appendChild(dirSpan);
+                }
+
+                wrapper.appendChild(textDiv);
+                nameCell.appendChild(wrapper);
+            } else {
+                nameCell.textContent = s.service_name || '-';
+            }
+
             tr.innerHTML = `
                 <td>${typeBadge}</td>
-                <td>${name}</td>
+                <td></td>
                 <td>${s.clinic_name}</td>
                 <td>${s.district}</td>
                 <td>${startFmt}</td>
@@ -242,6 +252,8 @@
                 ${adminCell}
                 <td>${actionHtml}</td>
             `;
+            // Replace the empty name cell with our safely constructed one
+            tr.cells[1].replaceWith(nameCell);
             tbody.appendChild(tr);
         });
 
