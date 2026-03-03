@@ -35,6 +35,8 @@ templates = Jinja2Templates(directory="templates")
 
 # Mount static files for doctor photos
 app.mount("/photos", StaticFiles(directory="/data/photos"), name="photos")
+# Mount static files for images (hero images, etc.)
+app.mount("/images", StaticFiles(directory="/data/images"), name="images")
 
 
 @app.on_event("startup")
