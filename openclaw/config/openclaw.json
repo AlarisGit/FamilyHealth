@@ -1,11 +1,11 @@
 {
   "meta": {
-    "lastTouchedVersion": "2026.2.26",
-    "lastTouchedAt": "2026-02-27T08:53:57.794Z"
+    "lastTouchedVersion": "2026.3.2",
+    "lastTouchedAt": "2026-03-03T21:25:35.498Z"
   },
   "wizard": {
-    "lastRunAt": "2026-02-26T18:09:57.287Z",
-    "lastRunVersion": "2026.2.26",
+    "lastRunAt": "2026-03-03T21:17:22.866Z",
+    "lastRunVersion": "2026.3.2",
     "lastRunCommand": "onboard",
     "lastRunMode": "local"
   },
@@ -102,7 +102,7 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "ollama/gpt-oss:20b",
+        "primary": "xai/grok-4-1-fast-non-reasoning",
         "fallbacks": [
           "xai/grok-4-1-fast-non-reasoning"
         ]
@@ -129,6 +129,9 @@
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8
+      },
+      "sandbox": {
+        "mode": "off"
       }
     },
     "list": [
@@ -136,7 +139,7 @@
         "id": "clinic",
         "default": true,
         "workspace": "/home/node/.openclaw/workspace-clinic",
-        "model": "ollama/gpt-oss:20b",
+        "model": "xai/grok-4-1-fast-non-reasoning",
         "skills": [
           "Family Health Scheduler"
         ],
@@ -162,6 +165,7 @@
     ]
   },
   "tools": {
+    "profile": "messaging",
     "alsoAllow": [
       "fh_api"
     ]
