@@ -111,6 +111,15 @@
         document.getElementById('timeFrom').value = fmt(now);
         const later = new Date(now.getTime() + 7*86400000);
         document.getElementById('timeTo').value = fmt(later);
+
+        // Pre-fill doctor name from URL parameter if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const doctorName = urlParams.get('doctor_name');
+        if (doctorName) {
+            document.getElementById('doctorName').value = doctorName;
+            // Auto-search if doctor name is pre-filled
+            setTimeout(() => searchSlots(), 500);
+        }
     })();
 
     function toggleTypeFields() {

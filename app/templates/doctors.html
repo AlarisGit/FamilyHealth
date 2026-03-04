@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Our Doctors - Family Health{% endblock %}
+{% block content %}
+<style>
+    .page-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+    .page-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 0.5rem;
+    }
+    .page-header p {
+        font-size: 1.1rem;
+        color: var(--gray-600);
+    }
+    .doctors-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+    .doctor-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+    .doctor-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+    }
+    .doctor-card:hover .doctor-photo {
+        transform: scale(1.05);
+    }
+    .doctor-photo-container {
+        width: 100%;
+        height: 280px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        position: relative;
+    }
+    .doctor-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+    .doctor-photo-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 5rem;
+        color: rgba(255,255,255,0.8);
+    }
+    .doctor-info {
+        padding: 1.5rem;
+    }
+    .doctor-name {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        margin-bottom: 0.5rem;
+    }
+    .doctor-specialties {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .specialty-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .doctor-bio {
+        color: var(--gray-700);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .doctor-card:hover .doctor-bio {
+        -webkit-line-clamp: unset;
+        overflow: visible;
+    }
+    .doctor-meta {
+        display: flex;
+        gap: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gray-200);
+        font-size: 0.85rem;
+        color: var(--gray-600);
+    }
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .click-hint {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(255,255,255,0.95);
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--primary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .doctor-card:hover .click-hint {
+        opacity: 1;
+    }
+    @media (max-width: 768px) {
+        .doctors-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        .doctor-photo-container {
+            height: 240px;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <h1>Meet Our Doctors</h1>
+    <p>Click on any doctor to search for available appointments</p>
+</div>
+
+<div class="doctors-grid">
+    {% for doctor in doctors %}
+    <div class="doctor-card" onclick="searchDoctor('{{ doctor.first_name }} {{ doctor.last_name }}')">
+        <div class="click-hint">Click to book →</div>
+        <div class="doctor-photo-container">
+            {% if doctor.photo_path %}
+                <img src="{{ doctor.photo_path }}" alt="{{ doctor.first_name }} {{ doctor.last_name }}" class="doctor-photo">
+            {% else %}
+                <div class="doctor-photo-placeholder">👨‍⚕️</div>
+            {% endif %}
+        </div>
+        <div class="doctor-info">
+            <div class="doctor-name">
+                {{ doctor.first_name }} {{ doctor.last_name }}
+                {% if doctor.middle_name %}{{ doctor.middle_name }}{% endif %}
+            </div>
+
+            {% if doctor.directions %}
+            <div class="doctor-specialties">
+                {% for direction in doctor.directions %}
+                <span class="specialty-badge">{{ direction.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if doctor.bio_text %}
+            <div class="doctor-bio">{{ doctor.bio_text }}</div>
+            {% endif %}
+
+            <div class="doctor-meta">
+                <div class="meta-item">
+                    <span>⏱️</span>
+                    <span>{{ doctor.duration_minutes }} min appointments</span>
+                </div>
+                {% if doctor.buffer_minutes > 0 %}
+                <div class="meta-item">
+                    <span>🔄</span>
+                    <span>{{ doctor.buffer_minutes }} min buffer</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not doctors %}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <h2 style="color: var(--gray-500);">No doctors found</h2>
+    <p class="text-muted">Please check back later.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function searchDoctor(doctorName) {
+        // Navigate to search page with doctor name pre-filled
+        const encodedName = encodeURIComponent(doctorName);
+        window.location.href = `/search?doctor_name=${encodedName}`;
+    }
+</script>
+{% endblock %}

@@ -328,6 +328,15 @@ def page_visits(request: Request):
     return templates.TemplateResponse("visits.html", {"request": request})
 
 
+@app.get("/doctors", response_class=HTMLResponse, include_in_schema=False)
+def page_doctors(request: Request, db: Session = Depends(get_db)):
+    doctors = db.query(Doctor).order_by(Doctor.last_name, Doctor.first_name).all()
+    return templates.TemplateResponse("doctors.html", {
+        "request": request,
+        "doctors": doctors,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------

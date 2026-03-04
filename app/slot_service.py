@@ -85,14 +85,32 @@ def search_doctor_slots(
             )
         )
     if doctor_name:
-        pattern = f"%{doctor_name}%"
-        query = query.filter(
-            or_(
-                Doctor.first_name.ilike(pattern),
-                Doctor.last_name.ilike(pattern),
-                Doctor.middle_name.ilike(pattern),
+        # Split doctor_name into words to handle "First Last" or "Last First" searches
+        name_parts = doctor_name.strip().split()
+
+        if len(name_parts) == 1:
+            # Single word: search in any name field
+            pattern = f"%{name_parts[0]}%"
+            query = query.filter(
+                or_(
+                    Doctor.first_name.ilike(pattern),
+                    Doctor.last_name.ilike(pattern),
+                    Doctor.middle_name.ilike(pattern),
+                )
             )
-        )
+        else:
+            # Multiple words: each word must match at least one name field
+            # This allows "Hans Müller" or "Müller Hans" to both work
+            for part in name_parts:
+                pattern = f"%{part}%"
+                query = query.filter(
+                    or_(
+                        Doctor.first_name.ilike(pattern),
+                        Doctor.last_name.ilike(pattern),
+                        Doctor.middle_name.ilike(pattern),
+                    )
+                )
+
 
     query = query.filter(
         DoctorSchedule.work_date >= time_from.date(),
