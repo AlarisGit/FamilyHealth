@@ -312,6 +312,50 @@ function filterFutureFreeSlots(result: any) {
   };
 }
 
+
+async function resolveBookingClinicId(params: {
+  baseUrl: string;
+  timeoutMs: number;
+  patientId: number;
+  visitType: "DOCTOR" | "SERVICE";
+  doctorId: number | null;
+  serviceId: number | null;
+  start: string;
+}): Promise<number | null> {
+  const slotType = params.visitType === "DOCTOR" ? "doctor" : "service";
+  const raw = await requestJson({
+    baseUrl: params.baseUrl,
+    timeoutMs: params.timeoutMs,
+    method: "GET",
+    path: "/slots/search",
+    query: {
+      patient_id: params.patientId,
+      type: slotType,
+      time_from: params.start,
+      time_to: params.start,
+      service_id: params.visitType === "SERVICE" ? params.serviceId : null,
+    },
+  });
+
+  const data = (raw as any)?.data;
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const targetStart = normalizeApiDateTime(params.start);
+
+  const matched = items.filter((item: any) => {
+    if (item?.is_free === false) return false;
+    const slotStart = cleanString(item?.start);
+    if (!slotStart || normalizeApiDateTime(slotStart) !== targetStart) return false;
+    if (params.visitType === "DOCTOR") {
+      return params.doctorId !== null && cleanNumber(item?.doctor_id) === params.doctorId;
+    }
+    return params.serviceId !== null && cleanNumber(item?.service_id) === params.serviceId;
+  });
+
+  const clinicIds = [...new Set(matched.map((item: any) => cleanPositiveNumber(item?.clinic_id)).filter(Boolean))] as number[];
+  return clinicIds.length === 1 ? clinicIds[0] : null;
+}
+
+
 const fhApiPlugin = {
   id: "fh-api",
   name: "Family Health API",
@@ -543,6 +587,32 @@ const fhApiPlugin = {
             } else if (action === "book_visit") {
               const doctorId = cleanPositiveNumber(input.doctor_id);
               const serviceId = cleanPositiveNumber(input.service_id);
+              const visitType = normalizeVisitType(input);
+              const startInput = cleanString(input.start) ?? cleanString(input.time_from);
+              if (!startInput) {
+                throw new Error("start is required");
+              }
+              const start = normalizeApiDateTime(startInput);
+
+              let clinicId = cleanPositiveNumber(input.clinic_id);
+              if (clinicId === null) {
+                clinicId = await resolveBookingClinicId({
+                  baseUrl,
+                  timeoutMs,
+                  patientId,
+                  visitType,
+                  doctorId,
+                  serviceId,
+                  start,
+                });
+              }
+
+              if (clinicId === null) {
+                throw new Error(
+                  "clinic_id is required for booking; provide clinic_id or select an exact slot first",
+                );
+              }
+
               result = await requestJson({
                 baseUrl,
                 timeoutMs,
@@ -550,11 +620,11 @@ const fhApiPlugin = {
                 path: "/visits",
                 query: { patient_id: patientId },
                 body: {
-                  visit_type: normalizeVisitType(input),
+                  visit_type: visitType,
                   doctor_id: doctorId,
                   service_id: serviceId,
-                  clinic_id: cleanPositiveNumber(input.clinic_id),
-                  start: normalizeApiDateTime(requireStringParam(input, "start")),
+                  clinic_id: clinicId,
+                  start,
                 },
               });
             } else if (action === "list_visits") {
