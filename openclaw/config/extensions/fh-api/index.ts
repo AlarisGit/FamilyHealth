@@ -1,9 +1,32 @@
 const DEFAULT_BASE_URL = "http://host.docker.internal:8080/api/v1";
 const DEFAULT_TIMEOUT_MS = 15000;
 const MAX_SLOT_ITEMS = 10;
+const IDENTICAL_FAILURE_WINDOW_MS = 2 * 60 * 1000;
+const BLOCK_AFTER_IDENTICAL_FAILURES = 1;
+const MAX_FAILURE_TRACK = 300;
 
 function toJsonText(payload: unknown): string {
   return JSON.stringify(payload, null, 2);
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  return `{${entries
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableSerialize(v)}`)
+    .join(",")}}`;
+}
+
+function buildFailureKey(action: string, input: Record<string, unknown>): string {
+  const payload = { ...input };
+  return `${action}:${stableSerialize(payload)}`;
 }
 
 function cleanString(value: unknown): string | null {
@@ -285,6 +308,15 @@ function parseApiDateTime(value: unknown): Date | null {
   return parsed;
 }
 
+
+function shiftApiDateTime(value: string, minutes: number): string {
+  const parsed = parseApiDateTime(value);
+  if (!parsed) return normalizeApiDateTime(value);
+  parsed.setUTCMinutes(parsed.getUTCMinutes() + minutes);
+  return normalizeApiDateTime(parsed.toISOString());
+}
+
+
 function filterFutureFreeSlots(result: any) {
   if (!result || typeof result !== "object") return result;
   const data = result.data;
@@ -332,7 +364,7 @@ async function resolveBookingClinicId(params: {
       patient_id: params.patientId,
       type: slotType,
       time_from: params.start,
-      time_to: params.start,
+      time_to: shiftApiDateTime(params.start, 120),
       service_id: params.visitType === "SERVICE" ? params.serviceId : null,
     },
   });
@@ -365,6 +397,7 @@ const fhApiPlugin = {
       (ctx: any) => {
         const baseUrl = sanitizeBaseUrl(api.pluginConfig?.baseUrl);
         const timeoutMs = sanitizeTimeoutMs(api.pluginConfig?.timeoutMs);
+        const recentFailures = new Map<string, { count: number; lastError: string; lastAt: number }>();
 
         return {
           name: "fh_api",
@@ -408,9 +441,31 @@ const fhApiPlugin = {
           async execute(_toolCallId: string, input: Record<string, unknown>) {
             const action = requireStringParam(input, "action");
             const patientId = resolveTelegramPatientId(ctx);
+            const nowMs = Date.now();
+
+            if (recentFailures.size > MAX_FAILURE_TRACK) {
+              for (const [key, failure] of recentFailures.entries()) {
+                if (nowMs - failure.lastAt > IDENTICAL_FAILURE_WINDOW_MS) {
+                  recentFailures.delete(key);
+                }
+              }
+            }
+
+            const failureKey = buildFailureKey(action, input);
+            const previousFailure = recentFailures.get(failureKey);
+            if (
+              previousFailure &&
+              nowMs - previousFailure.lastAt <= IDENTICAL_FAILURE_WINDOW_MS &&
+              previousFailure.count >= BLOCK_AFTER_IDENTICAL_FAILURES
+            ) {
+              throw new Error(
+                `Repeated identical request blocked after ${previousFailure.count} failure(s): ${previousFailure.lastError}. Change parameters before retrying.`,
+              );
+            }
 
             let result: unknown;
 
+            try {
             if (action === "list_clinics") {
               result = await requestJson({ baseUrl, timeoutMs, method: "GET", path: "/clinics" });
             } else if (action === "list_directions") {
@@ -653,10 +708,58 @@ const fhApiPlugin = {
               throw new Error(`Unsupported action: ${action}`);
             }
 
+            const hasMeaningfulError =
+              !!result &&
+              typeof result === "object" &&
+              (result as any).status === "error" &&
+              typeof (result as any).error === "string";
+
+            if (hasMeaningfulError) {
+              const errorText = String((result as any).error);
+              const current = recentFailures.get(failureKey);
+              if (
+                current &&
+                current.lastError === errorText &&
+                nowMs - current.lastAt <= IDENTICAL_FAILURE_WINDOW_MS
+              ) {
+                current.count += 1;
+                current.lastAt = nowMs;
+                recentFailures.set(failureKey, current);
+              } else {
+                recentFailures.set(failureKey, {
+                  count: 1,
+                  lastError: errorText,
+                  lastAt: nowMs,
+                });
+              }
+            } else {
+              recentFailures.delete(failureKey);
+            }
+
             return {
               content: [{ type: "text", text: toJsonText(result) }],
               details: result,
             };
+            } catch (error) {
+              const errorText = error instanceof Error ? error.message : String(error);
+              const current = recentFailures.get(failureKey);
+              if (
+                current &&
+                current.lastError === errorText &&
+                nowMs - current.lastAt <= IDENTICAL_FAILURE_WINDOW_MS
+              ) {
+                current.count += 1;
+                current.lastAt = nowMs;
+                recentFailures.set(failureKey, current);
+              } else {
+                recentFailures.set(failureKey, {
+                  count: 1,
+                  lastError: errorText,
+                  lastAt: nowMs,
+                });
+              }
+              throw error;
+            }
           },
         };
       }
