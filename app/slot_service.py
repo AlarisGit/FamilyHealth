@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta, date, time as dt_time
 from typing import List, Optional, Tuple
+import logging
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, text
 
@@ -10,6 +12,8 @@ from models import (
     DoctorSchedule, ServiceSchedule, Visit,
     doctor_direction,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _combine(d: date, t: dt_time) -> datetime:
@@ -342,9 +346,17 @@ def book_visit(
         db.add(visit)
         try:
             db.commit()
-        except Exception:
+        except IntegrityError:
             db.rollback()
             return None, "slot_busy"
+        except DataError:
+            db.rollback()
+            logger.exception("Failed to store patient_id=%s for doctor visit", patient_id)
+            return None, "invalid_request"
+        except Exception:
+            db.rollback()
+            logger.exception("Unexpected DB error while booking doctor visit")
+            return None, "database_error"
         db.refresh(visit)
         return visit.id, None
 
@@ -414,9 +426,17 @@ def book_visit(
         db.add(visit)
         try:
             db.commit()
-        except Exception:
+        except IntegrityError:
             db.rollback()
             return None, "slot_busy"
+        except DataError:
+            db.rollback()
+            logger.exception("Failed to store patient_id=%s for service visit", patient_id)
+            return None, "invalid_request"
+        except Exception:
+            db.rollback()
+            logger.exception("Unexpected DB error while booking service visit")
+            return None, "database_error"
         db.refresh(visit)
         return visit.id, None
 

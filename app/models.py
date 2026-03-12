@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Text, Date, Time, DateTime, Enum, ForeignKey,
+    BigInteger, Column, Integer, String, Text, Date, Time, DateTime, Enum, ForeignKey,
     Table
 )
 from sqlalchemy.orm import relationship, declarative_base
@@ -80,7 +80,7 @@ class ServiceSchedule(Base):
 class Visit(Base):
     __tablename__ = "visit"
     id = Column(Integer, primary_key=True)
-    patient_id = Column(Integer, nullable=False)
+    patient_id = Column(BigInteger, nullable=False)
     visit_type = Column(Enum("DOCTOR", "SERVICE"), nullable=False)
     doctor_id = Column(Integer, ForeignKey("doctor.id"))
     service_id = Column(Integer, ForeignKey("service.id"))

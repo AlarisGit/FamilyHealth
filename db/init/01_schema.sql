@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS service_schedule (
 
 CREATE TABLE IF NOT EXISTS visit (
     id               INT AUTO_INCREMENT PRIMARY KEY,
-    patient_id       INT NOT NULL,
+    patient_id       BIGINT NOT NULL,
     visit_type       ENUM('DOCTOR','SERVICE') NOT NULL,
     doctor_id        INT DEFAULT NULL,
     service_id       INT DEFAULT NULL,

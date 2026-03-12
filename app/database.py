@@ -10,6 +10,12 @@ engine = None
 SessionLocal = None
 
 
+def ensure_schema_compatibility():
+    with engine.begin() as conn:
+        # Telegram user ids do not fit into MySQL INT for all accounts.
+        conn.execute(text("ALTER TABLE visit MODIFY COLUMN patient_id BIGINT NOT NULL"))
+
+
 def init_db(max_retries: int = 30, retry_delay: float = 2.0):
     global engine, SessionLocal
     for attempt in range(1, max_retries + 1):
@@ -17,6 +23,7 @@ def init_db(max_retries: int = 30, retry_delay: float = 2.0):
             engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=5)
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
+            ensure_schema_compatibility()
             SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
             logger.info("Database connection established.")
             return
