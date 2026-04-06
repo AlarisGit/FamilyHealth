@@ -12,7 +12,7 @@ docker compose up --build
 - **Swagger UI**: http://localhost:8080/docs
 - **OpenAPI JSON**: http://localhost:8080/openapi.json
 
-On first startup, MySQL is initialized with schema and seed data (3 clinics, 10 doctors, 6 services, 14 days of schedules).
+On first startup, MySQL is initialized with schema and seed data (3 clinics, 10 doctors, 6 services, 14 days of schedules). On subsequent app starts, the service automatically extends schedules forward so an old MySQL volume does not run out of future slots.
 
 ## Features
 
