@@ -1,0 +1,1 @@
+src/gateway/server-methods/CLAUDE.md

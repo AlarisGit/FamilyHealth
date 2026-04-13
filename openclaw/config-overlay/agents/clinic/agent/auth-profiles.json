@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "profiles": {
+    "xai:default": {
+      "type": "api_key",
+      "provider": "xai",
+      "key": "__SET_XAI_API_KEY__"
+    }
+  },
+  "lastGood": {
+    "xai": "xai:default"
+  },
+  "usageStats": {}
+}

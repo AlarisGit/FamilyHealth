@@ -1,0 +1,216 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.8",
+    "lastTouchedAt": "2026-03-11T10:26:24.380Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-03T21:17:22.866Z",
+    "lastRunVersion": "2026.3.2",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "xai:default": {
+        "provider": "xai",
+        "mode": "api_key"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "xai": {
+        "baseUrl": "https://api.x.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "grok-4-1-fast-non-reasoning",
+            "name": "Grok 4.1 Fast Non-Reasoning",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 131072,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "xai/grok-4-1-fast-non-reasoning",
+        "fallbacks": [
+          "xai/grok-4-1-fast-non-reasoning"
+        ]
+      },
+      "models": {
+        "xai/grok-4-1-fast-non-reasoning": {
+          "alias": "Grok"
+        }
+      },
+      "workspace": "/home/node/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      },
+      "sandbox": {
+        "mode": "off"
+      }
+    },
+    "list": [
+      {
+        "id": "clinic",
+        "default": true,
+        "workspace": "/home/node/.openclaw/workspace-clinic",
+        "model": "xai/grok-4-1-fast-non-reasoning",
+        "skills": [
+          "Family Health Scheduler"
+        ],
+        "tools": {
+          "profile": "minimal",
+          "alsoAllow": [
+            "fh_api"
+          ],
+          "deny": [
+            "session_status",
+            "group:runtime",
+            "group:fs",
+            "group:web",
+            "group:ui",
+            "group:nodes",
+            "group:automation"
+          ]
+        }
+      },
+      {
+        "id": "main"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "messaging",
+    "alsoAllow": [
+      "fh_api"
+    ]
+  },
+  "bindings": [
+    {
+      "agentId": "clinic",
+      "match": {
+        "channel": "telegram",
+        "accountId": "*"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer",
+    "typingMode": "never"
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "botToken": "__SET_TELEGRAM_BOT_TOKEN__",
+      "groupAllowFrom": [
+        "-1"
+      ],
+      "groupPolicy": "allowlist",
+      "streaming": "off",
+      "timeoutSeconds": 120,
+      "retry": {
+        "attempts": 15,
+        "minDelayMs": 1000,
+        "maxDelayMs": 60000,
+        "jitter": 0.3
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:18789",
+        "http://127.0.0.1:18789"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "__SET_OPENCLAW_GATEWAY_TOKEN__"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add"
+      ]
+    }
+  },
+  "skills": {
+    "allowBundled": [
+      "__none__"
+    ]
+  },
+  "plugins": {
+    "allow": [
+      "fh-api",
+      "telegram"
+    ],
+    "load": {
+      "paths": [
+        "/home/node/.openclaw/extensions/fh-api"
+      ]
+    },
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "fh-api": {
+        "enabled": true,
+        "config": {
+          "baseUrl": "http://ai-chatbot-demo.int.alarislabs.com:8080/api/v1",
+          "timeoutMs": 15000
+        }
+      }
+    }
+  }
+}
